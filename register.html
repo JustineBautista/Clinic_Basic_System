@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Register</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+</head>
+<body class="auth-page">
+
+<div class="auth-card">
+    <h2>Create Account</h2>
+
+    <input id="regEmail" type="email" class="auth-input" placeholder="Email" oninput="document.getElementById('regError').innerText = ''">
+    <input id="regPass" type="password" class="auth-input" placeholder="Password" oninput="document.getElementById('regError').innerText = ''">
+
+    <button class="auth-btn" onclick="register()">Register</button>
+
+    <a href="index.html" class="auth-link">Back to Login</a>
+
+    <p id="regError" style="color:red;text-align:center;margin-top:10px"></p>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

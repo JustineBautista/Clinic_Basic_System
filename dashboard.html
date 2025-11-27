@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+</head>
+<body>
+
+<div class="container">
+
+    <div class="sidebar">
+        <div>
+            <h3 id="welcomeUser"><i class="fas fa-user"></i> Welcome!</h3>
+            <div class="menu-item" onclick="showSection('patients')"><i class="fas fa-users"></i> Patients</div>
+            <div class="menu-item" onclick="showSection('doctors')"><i class="fas fa-user-md"></i> Doctors</div>
+            <div class="menu-item" onclick="showSection('records')"><i class="fas fa-file-medical"></i> Records</div>
+        </div>
+
+        <div class="sidebar-footer">
+            <button class="logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </div>
+
+    <div class="content">
+        <!-- Patients Section -->
+        <div id="patientsSection">
+            <div class="header">
+                <h2>Patients</h2>
+
+                <div style="display:flex;gap:10px;">
+                    <input id="search" class="search" onkeyup="searchPatient()" placeholder="Search patients">
+                    <button class="add-btn" onclick="openModal()">+ Add</button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="patientTable">
+                    <tr>
+                        <th>ID</th><th>Name</th><th>Address</th><th>Phone</th><th>Action</th>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Doctors Section -->
+        <div id="doctorsSection" style="display:none;">
+            <div class="header">
+                <h2>Doctors</h2>
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <input id="searchDoctors" class="search" onkeyup="filterDoctors()" placeholder="Search doctors">
+                </div>
+            </div>
+
+            <div class="table-container">
+                <div id="doctorsList"></div>
+            </div>
+        </div>
+
+        <!-- Records Section -->
+        <div id="recordsSection" style="display:none;"></div>
+    </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal" id="modal">
+    <div class="modal-content">
+        <h3 id="modalTitle">Add Patient</h3>
+
+        <input id="pName" placeholder="Name">
+        <input id="pAddress" placeholder="Address">
+        <input id="pPhone" placeholder="Phone">
+
+        <button onclick="savePatient()">Save</button>
+    </div>
+</div>
+
+<!-- RECORD MODAL -->
+<div class="modal" id="recordModal">
+    <div class="modal-content">
+        <h3 id="recordModalTitle">Add Patient Record</h3>
+
+        <form id="recordForm">
+            <select id="recordPatient" required>
+                <option value="">Select Patient</option>
+            </select>
+            <input id="recordDate" type="date" required>
+            <input id="recordDiagnosis" placeholder="Diagnosis" required>
+            <input id="recordTreatment" placeholder="Treatment" required>
+            <textarea id="recordNotes" placeholder="Notes" rows="3"></textarea>
+            <input type="hidden" id="recordEditIndex" value="-1">
+        </form>
+
+        <div class="modal-actions">
+            <button class="modal-btn neutral" onclick="document.getElementById('recordModal').style.display='none'">Cancel</button>
+            <button class="modal-btn" onclick="saveRecord()">Save</button>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
