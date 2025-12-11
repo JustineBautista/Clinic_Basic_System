@@ -1,11 +1,40 @@
-/* ================================
-   DEFAULT USER ACCOUNTS
-================================ */
-if (!localStorage.getItem("users")) {
-    localStorage.setItem("users", JSON.stringify([
-        { email: "admin", password: "admin123" },
-        { email: "user@gmail.com", password: "user123" }
-    ]));
+
+/* DEFAULT ACCOUNTS */
+const adminHash = CryptoJS.SHA256("admin123").toString();
+const staffHash = CryptoJS.SHA256("clinic123").toString();
+
+
+localStorage.setItem("users", JSON.stringify([
+    { email: "admin@clinic.com", password: adminHash },
+    { email: "clinic@school.com", password: staffHash }
+]));
+
+/* LOGIN FUNCTION */
+function login() {
+    let email = document.getElementById("email").value.trim();
+    let password = document.getElementById("password").value.trim();
+    let error = document.getElementById("error");
+
+    if (!email || !password) {
+        error.innerText = "Please enter email and password.";
+        return;
+    }
+
+    const users = JSON.parse(localStorage.getItem("users"));
+    const hashed = CryptoJS.SHA256(password).toString();
+
+    const found = users.find(u => u.email === email && u.password === hashed);
+
+    if (!found) {
+        error.innerText = "Invalid email or password.";
+        return;
+    }
+
+    // store current user
+    localStorage.setItem("currentUser", email);
+
+    // redirect
+    window.location.href = "dashboard.html";
 }
 
 /* ================================
@@ -128,77 +157,10 @@ if (!localStorage.getItem("doctors")) {
 }
 
 /* ================================
-   LOGIN
-================================ */
-function login() {
-    let email = document.getElementById("email").value.trim();
-    let pass = document.getElementById("password").value;
-
-    if (!validateEmail(email) || !pass) {
-        document.getElementById("error").innerText = "Please enter valid email and password.";
-        return;
-    }
-
-    let users = JSON.parse(localStorage.getItem("users")) || [];
-    let hashedPassword = CryptoJS.SHA256(pass).toString();
-    let found = users.find(u => u.email === email && u.password === hashedPassword);
-
-    if (found) {
-        localStorage.setItem("loggedInUser", JSON.stringify({ email: found.email }));
-        window.location.href = "dashboard.html";
-    } else {
-        document.getElementById("error").innerText = "Invalid email or password.";
-    }
-}
-
-/* ================================
-   REGISTER
-================================ */
-function register() {
-    let email = document.getElementById("regEmail").value.trim();
-    let pass = document.getElementById("regPass").value;
-
-    // Input validation
-    if (!validateEmail(email)) {
-        document.getElementById("regError").innerText = "Please enter a valid email address.";
-        return;
-    }
-
-    if (!validatePassword(pass)) {
-        document.getElementById("regError").innerText = "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number.";
-        return;
-    }
-
-    let users = JSON.parse(localStorage.getItem("users")) || [];
-
-    if (users.find(u => u.email === email)) {
-        document.getElementById("regError").innerText = "Email already exists.";
-        return;
-    }
-
-    // Hash password before storing
-    let hashedPassword = CryptoJS.SHA256(pass).toString();
-    users.push({ email, password: hashedPassword });
-    localStorage.setItem("users", JSON.stringify(users));
-
-    alert("Account created successfully!");
-    window.location.href = "index.html";
-}
-
-/* ================================
-   AUTH CHECK
-================================ */
-if (window.location.pathname.includes("dashboard.html")) {
-    if (!localStorage.getItem("loggedInUser")) {
-        window.location.href = "index.html";
-    }
-}
-
-/* ================================
    LOGOUT
 ================================ */
 function logout() {
-    localStorage.removeItem("loggedInUser");
+    localStorage.removeItem("currentUser");
     window.location.href = "index.html";
 }
 
@@ -257,12 +219,13 @@ function loadPatients() {
     });
 }
 
+
 /* LOAD TABLE ON START */
 window.onload = () => {
     let userEl = document.getElementById("welcomeUser");
     if (userEl) {
-        let user = JSON.parse(localStorage.getItem("loggedInUser")) || { email: 'Guest' };
-        userEl.innerText = "Welcome " + user.email;
+        let user = localStorage.getItem("currentUser") || 'Guest';
+        userEl.innerText = "Welcome " + user;
     }
 
     // initialize patients table and doctors list if present
@@ -273,6 +236,11 @@ window.onload = () => {
 
     if (document.getElementById('doctorsList')) {
         loadDoctors();
+    }
+
+    // Load dashboard data if on dashboard
+    if (document.getElementById("dashboardSection")) {
+        showSection('dashboard');
     }
 };
 
@@ -472,16 +440,26 @@ function contactDoctor(index){
     alert(`Contacting ${d.name}\nPhone: ${d.phone}\nEmail: ${d.email}`);
 }
 
+
 function showSection(name){
-    const sections = ['patients','doctors','records'];
+    // Update menu active state
+    document.querySelectorAll('.menu-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    event?.target?.classList?.add('active');
+
+    const sections = ['dashboard','patients','doctors','appointments','medicine','records'];
     sections.forEach(s=>{
         const el = document.getElementById(s + 'Section');
         if(el) el.style.display = (s===name) ? '' : 'none';
     });
 
     // load data for the shown section
+    if(name === 'dashboard') updateDashboard();
     if(name === 'patients') loadPatients();
     if(name === 'doctors') loadDoctors();
+    if(name === 'appointments') loadAppointments();
+    if(name === 'medicine') loadMedicine();
     if(name === 'records') loadPatientRecords();
 }
 
@@ -541,6 +519,7 @@ function deletePatient(index) {
     loadPatients();
 }
 
+
 /* CLOSE MODAL WHEN CLICKING OUTSIDE */
 window.onclick = function(e) {
     if (e.target === document.getElementById("modal")) {
@@ -548,6 +527,12 @@ window.onclick = function(e) {
     }
     if (e.target === document.getElementById("recordModal")) {
         document.getElementById("recordModal").style.display = "none";
+    }
+    if (e.target === document.getElementById("appointmentModal")) {
+        document.getElementById("appointmentModal").style.display = "none";
+    }
+    if (e.target === document.getElementById("medicineModal")) {
+        document.getElementById("medicineModal").style.display = "none";
     }
 };
 
@@ -558,6 +543,312 @@ function searchPatient() {
     let value = document.getElementById("search").value.toLowerCase();
     let rows = document.querySelectorAll("#patientTable tr");
 
+    rows.forEach((r, i) => {
+        if (i === 0) return;
+        r.style.display = r.innerText.toLowerCase().includes(value) ? "" : "none";
+    });
+}
+
+
+/* ================================
+   DASHBOARD FUNCTIONS
+================================ */
+function updateDashboard() {
+    // Update dashboard counters
+    const patients = JSON.parse(localStorage.getItem("patients")) || [];
+    const doctors = JSON.parse(localStorage.getItem("doctors")) || [];
+    const records = JSON.parse(localStorage.getItem("patientRecords")) || [];
+    const medicines = JSON.parse(localStorage.getItem("medicines")) || [];
+
+    document.getElementById("countPatients").textContent = patients.length;
+    document.getElementById("countDoctors").textContent = doctors.length;
+    document.getElementById("countRecords").textContent = records.length;
+    document.getElementById("countMedicine").textContent = medicines.length;
+
+    // Update recent activity
+    const recentActivity = document.getElementById("recentActivity");
+    if (records.length > 0) {
+        const recentRecords = records.slice(-3).reverse();
+        recentActivity.innerHTML = recentRecords.map(record => {
+            const patient = patients[record.patientIndex];
+            return `<div style="padding: 10px; border-bottom: 1px solid #eee;">
+                <strong>${patient ? patient.name : 'Unknown Patient'}</strong> - ${record.diagnosis}
+                <br><small>${new Date(record.date).toLocaleDateString()}</small>
+            </div>`;
+        }).join('');
+    } else {
+        recentActivity.innerHTML = '<p class="doc-info">No recent activity to display.</p>';
+    }
+}
+
+/* ================================
+   APPOINTMENTS FUNCTIONS
+================================ */
+if (!localStorage.getItem("appointments")) {
+    localStorage.setItem("appointments", JSON.stringify([]));
+}
+
+function loadAppointments() {
+    const table = document.getElementById("appointmentsTable");
+    const appointments = JSON.parse(localStorage.getItem("appointments")) || [];
+    const patients = JSON.parse(localStorage.getItem("patients")) || [];
+    const doctors = JSON.parse(localStorage.getItem("doctors")) || [];
+
+    table.innerHTML = `
+        <tr>
+            <th>ID</th><th>Patient</th><th>Doctor</th><th>Date</th><th>Time</th><th>Status</th><th>Action</th>
+        </tr>
+    `;
+
+    appointments.forEach((appointment, index) => {
+        const patient = patients[appointment.patientIndex] || { name: 'Unknown Patient' };
+        const doctor = doctors[appointment.doctorIndex] || { name: 'Unknown Doctor' };
+        
+        table.innerHTML += `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${patient.name}</td>
+                <td>${doctor.name}</td>
+                <td>${new Date(appointment.date).toLocaleDateString()}</td>
+                <td>${appointment.time}</td>
+                <td><span class="status-badge status-${appointment.status}">${appointment.status}</span></td>
+                <td>
+                    <button class="action-btn edit" onclick="editAppointment(${index})">Edit</button>
+                    <button class="action-btn delete" onclick="deleteAppointment(${index})">Delete</button>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+function openAppointmentModal(editIndex = -1) {
+    const patients = JSON.parse(localStorage.getItem("patients")) || [];
+    const doctors = JSON.parse(localStorage.getItem("doctors")) || [];
+    
+    if (patients.length === 0) {
+        alert("Please add patients first before scheduling appointments.");
+        return;
+    }
+    
+    if (doctors.length === 0) {
+        alert("No doctors available. Please check doctor directory.");
+        return;
+    }
+
+    const modal = document.getElementById("appointmentModal");
+    const title = document.getElementById("appointmentModalTitle");
+    
+    // Populate patient dropdown
+    const patientSelect = document.getElementById("appointmentPatient");
+    patientSelect.innerHTML = '<option value="">Select Patient</option>' +
+        patients.map((p, i) => `<option value="${i}">${p.name}</option>`).join('');
+    
+    // Populate doctor dropdown
+    const doctorSelect = document.getElementById("appointmentDoctor");
+    doctorSelect.innerHTML = '<option value="">Select Doctor</option>' +
+        doctors.map((d, i) => `<option value="${i}">${d.name} - ${d.specialty}</option>`).join('');
+    
+    if (editIndex === -1) {
+        title.innerText = "Schedule Appointment";
+        document.getElementById("appointmentForm")?.reset();
+    } else {
+        title.innerText = "Edit Appointment";
+        const appointments = JSON.parse(localStorage.getItem("appointments")) || [];
+        const appointment = appointments[editIndex];
+        document.getElementById("appointmentPatient").value = appointment.patientIndex;
+        document.getElementById("appointmentDoctor").value = appointment.doctorIndex;
+        document.getElementById("appointmentDate").value = appointment.date;
+        document.getElementById("appointmentTime").value = appointment.time;
+        document.getElementById("appointmentStatus").value = appointment.status;
+    }
+    
+    document.getElementById("appointmentEditIndex").value = editIndex;
+    modal.style.display = "flex";
+}
+
+function saveAppointment() {
+    const patientIndex = document.getElementById("appointmentPatient").value;
+    const doctorIndex = document.getElementById("appointmentDoctor").value;
+    const date = document.getElementById("appointmentDate").value;
+    const time = document.getElementById("appointmentTime").value;
+    const status = document.getElementById("appointmentStatus").value;
+    
+    if (!patientIndex || !doctorIndex || !date || !time) {
+        alert("Please fill in all required fields.");
+        return;
+    }
+    
+    const appointments = JSON.parse(localStorage.getItem("appointments")) || [];
+    const editIndex = parseInt(document.getElementById("appointmentEditIndex").value);
+    
+    const appointment = {
+        patientIndex: parseInt(patientIndex),
+        doctorIndex: parseInt(doctorIndex),
+        date,
+        time,
+        status
+    };
+    
+    if (editIndex === -1) {
+        appointments.push(appointment);
+    } else {
+        appointments[editIndex] = appointment;
+    }
+    
+    localStorage.setItem("appointments", JSON.stringify(appointments));
+    document.getElementById("appointmentModal").style.display = "none";
+    loadAppointments();
+}
+
+function editAppointment(index) {
+    openAppointmentModal(index);
+}
+
+function deleteAppointment(index) {
+    if (confirm("Are you sure you want to delete this appointment?")) {
+        const appointments = JSON.parse(localStorage.getItem("appointments")) || [];
+        appointments.splice(index, 1);
+        localStorage.setItem("appointments", JSON.stringify(appointments));
+        loadAppointments();
+    }
+}
+
+function searchAppointments() {
+    const value = document.getElementById("searchAppointments").value.toLowerCase();
+    const rows = document.querySelectorAll("#appointmentsTable tr");
+    
+    rows.forEach((r, i) => {
+        if (i === 0) return;
+        r.style.display = r.innerText.toLowerCase().includes(value) ? "" : "none";
+    });
+}
+
+/* ================================
+   MEDICINE INVENTORY FUNCTIONS
+================================ */
+if (!localStorage.getItem("medicines")) {
+    localStorage.setItem("medicines", JSON.stringify([
+        {
+            name: "Paracetamol",
+            category: "Pain Relief",
+            stock: 100,
+            expiryDate: "2024-12-31"
+        },
+        {
+            name: "Amoxicillin",
+            category: "Antibiotic",
+            stock: 50,
+            expiryDate: "2024-11-30"
+        },
+        {
+            name: "Ibuprofen",
+            category: "Anti-inflammatory",
+            stock: 75,
+            expiryDate: "2025-01-15"
+        }
+    ]));
+}
+
+function loadMedicine() {
+    const table = document.getElementById("medicineTable");
+    const medicines = JSON.parse(localStorage.getItem("medicines")) || [];
+
+    table.innerHTML = `
+        <tr>
+            <th>ID</th><th>Medicine Name</th><th>Category</th><th>Stock</th><th>Expiry Date</th><th>Action</th>
+        </tr>
+    `;
+
+    medicines.forEach((medicine, index) => {
+        const isExpiringSoon = new Date(medicine.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        const stockClass = medicine.stock < 10 ? 'low-stock' : '';
+        
+        table.innerHTML += `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${medicine.name}</td>
+                <td>${medicine.category}</td>
+                <td class="${stockClass}">${medicine.stock}</td>
+                <td class="${isExpiringSoon ? 'expiring-soon' : ''}">${new Date(medicine.expiryDate).toLocaleDateString()}</td>
+                <td>
+                    <button class="action-btn edit" onclick="editMedicine(${index})">Edit</button>
+                    <button class="action-btn delete" onclick="deleteMedicine(${index})">Delete</button>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+function openMedicineModal(editIndex = -1) {
+    const modal = document.getElementById("medicineModal");
+    const title = document.getElementById("medicineModalTitle");
+    
+    if (editIndex === -1) {
+        title.innerText = "Add Medicine";
+        document.getElementById("medicineForm")?.reset();
+    } else {
+        title.innerText = "Edit Medicine";
+        const medicines = JSON.parse(localStorage.getItem("medicines")) || [];
+        const medicine = medicines[editIndex];
+        document.getElementById("medicineName").value = medicine.name;
+        document.getElementById("medicineCategory").value = medicine.category;
+        document.getElementById("medicineStock").value = medicine.stock;
+        document.getElementById("medicineExpiry").value = medicine.expiryDate;
+    }
+    
+    document.getElementById("medicineEditIndex").value = editIndex;
+    modal.style.display = "flex";
+}
+
+function saveMedicine() {
+    const name = document.getElementById("medicineName").value;
+    const category = document.getElementById("medicineCategory").value;
+    const stock = parseInt(document.getElementById("medicineStock").value);
+    const expiryDate = document.getElementById("medicineExpiry").value;
+    
+    if (!name || !category || !stock || !expiryDate) {
+        alert("Please fill in all fields.");
+        return;
+    }
+    
+    if (stock < 0) {
+        alert("Stock quantity cannot be negative.");
+        return;
+    }
+    
+    const medicines = JSON.parse(localStorage.getItem("medicines")) || [];
+    const editIndex = parseInt(document.getElementById("medicineEditIndex").value);
+    
+    const medicine = { name, category, stock, expiryDate };
+    
+    if (editIndex === -1) {
+        medicines.push(medicine);
+    } else {
+        medicines[editIndex] = medicine;
+    }
+    
+    localStorage.setItem("medicines", JSON.stringify(medicines));
+    document.getElementById("medicineModal").style.display = "none";
+    loadMedicine();
+}
+
+function editMedicine(index) {
+    openMedicineModal(index);
+}
+
+function deleteMedicine(index) {
+    if (confirm("Are you sure you want to delete this medicine?")) {
+        const medicines = JSON.parse(localStorage.getItem("medicines")) || [];
+        medicines.splice(index, 1);
+        localStorage.setItem("medicines", JSON.stringify(medicines));
+        loadMedicine();
+    }
+}
+
+function searchMedicine() {
+    const value = document.getElementById("searchMedicine").value.toLowerCase();
+    const rows = document.querySelectorAll("#medicineTable tr");
+    
     rows.forEach((r, i) => {
         if (i === 0) return;
         r.style.display = r.innerText.toLowerCase().includes(value) ? "" : "none";
@@ -710,6 +1001,7 @@ function deleteRecord(index) {
     }
 }
 
+
 /* ================================
    VALIDATION FUNCTIONS
 ================================ */
@@ -723,3 +1015,484 @@ function validatePassword(password) {
     const re = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/;
     return re.test(password);
 }
+
+/* ================================
+   ADVANCED DASHBOARD FEATURES
+================================ */
+
+// Initialize dashboard with charts and analytics
+let appointmentsChart, patientsChart;
+
+function initializeDashboard() {
+    if (document.getElementById("dashboardSection")) {
+        updateDashboard();
+        initializeCharts();
+        updateDashboardAnalytics();
+    }
+}
+
+// Initialize Chart.js charts
+function initializeCharts() {
+    const appointmentsCtx = document.getElementById('appointmentsChart');
+    const patientsCtx = document.getElementById('patientsChart');
+
+    if (appointmentsCtx) {
+        appointmentsChart = new Chart(appointmentsCtx, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Appointments',
+                    data: [12, 19, 3, 5, 2, 3],
+                    borderColor: '#6e0f0f',
+                    backgroundColor: 'rgba(110, 15, 15, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0,0,0,0.1)'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: 'rgba(0,0,0,0.1)'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    if (patientsCtx) {
+        patientsChart = new Chart(patientsCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['General Medicine', 'Pediatrics', 'Cardiology', 'Others'],
+                datasets: [{
+                    data: [40, 25, 20, 15],
+                    backgroundColor: [
+                        '#6e0f0f',
+                        '#8B0000',
+                        '#A52A2A',
+                        '#CD853F'
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            usePointStyle: true,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+// Update dashboard with enhanced analytics
+function updateDashboardAnalytics() {
+    const patients = JSON.parse(localStorage.getItem("patients")) || [];
+    const doctors = JSON.parse(localStorage.getItem("doctors")) || [];
+    const records = JSON.parse(localStorage.getItem("patientRecords")) || [];
+    const medicines = JSON.parse(localStorage.getItem("medicines")) || [];
+    const appointments = JSON.parse(localStorage.getItem("appointments")) || [];
+
+    // Update basic counters
+    document.getElementById("countPatients").textContent = patients.length;
+    document.getElementById("countDoctors").textContent = doctors.length;
+    document.getElementById("countRecords").textContent = records.length;
+    document.getElementById("countMedicine").textContent = medicines.length;
+
+    // Today's appointments
+    const today = new Date().toISOString().split('T')[0];
+    const todayAppointments = appointments.filter(apt => apt.date === today);
+    document.getElementById("countTodayAppointments").textContent = todayAppointments.length;
+
+    // Low stock alert
+    const lowStockItems = medicines.filter(med => med.stock < 10);
+    document.getElementById("countLowStock").textContent = lowStockItems.length;
+
+    // Update charts with real data
+    updateChartsWithRealData();
+
+    // Update recent activity with enhanced details
+    updateRecentActivity();
+}
+
+// Update charts with real data from the system
+function updateChartsWithRealData() {
+    const appointments = JSON.parse(localStorage.getItem("appointments")) || [];
+    const records = JSON.parse(localStorage.getItem("patientRecords")) || [];
+
+    // Update appointments chart (last 6 months)
+    if (appointmentsChart && appointments.length > 0) {
+        const monthlyData = getMonthlyAppointments();
+        appointmentsChart.data.datasets[0].data = monthlyData;
+        appointmentsChart.update();
+    }
+
+    // Update patients chart (by specialty)
+    if (patientsChart) {
+        const specialtyData = getPatientsBySpecialty();
+        patientsChart.data.datasets[0].data = specialtyData.values;
+        patientsChart.data.labels = specialtyData.labels;
+        patientsChart.update();
+    }
+}
+
+// Get monthly appointments for chart
+function getMonthlyAppointments() {
+    const appointments = JSON.parse(localStorage.getItem("appointments")) || [];
+    const monthlyData = [0, 0, 0, 0, 0, 0]; // Last 6 months
+    
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        
+        monthlyData[5 - i] = appointments.filter(apt => {
+            const aptDate = new Date(apt.date);
+            return aptDate.getFullYear() === date.getFullYear() && 
+                   aptDate.getMonth() === date.getMonth();
+        }).length;
+    }
+    
+    return monthlyData;
+}
+
+// Get patient distribution by doctor specialty
+function getPatientsBySpecialty() {
+    const doctors = JSON.parse(localStorage.getItem("doctors")) || [];
+    const specialtyCount = {};
+    
+    doctors.forEach(doctor => {
+        const specialty = doctor.specialty || 'General';
+        specialtyCount[specialty] = (specialtyCount[specialty] || 0) + 1;
+    });
+    
+    const labels = Object.keys(specialtyCount);
+    const values = Object.values(specialtyCount);
+    
+    return { labels, values };
+}
+
+// Update recent activity section
+function updateRecentActivity() {
+    const recentActivity = document.getElementById("recentActivity");
+    const patients = JSON.parse(localStorage.getItem("patients")) || [];
+    const records = JSON.parse(localStorage.getItem("patientRecords")) || [];
+    const appointments = JSON.parse(localStorage.getItem("appointments")) || [];
+    
+    const activities = [];
+    
+    // Recent records
+    records.slice(-3).reverse().forEach(record => {
+        const patient = patients[record.patientIndex];
+        activities.push({
+            type: 'record',
+            text: `${patient ? patient.name : 'Unknown Patient'} - ${record.diagnosis}`,
+            date: record.date,
+            icon: 'fas fa-file-medical'
+        });
+    });
+    
+    // Recent appointments
+    appointments.slice(-2).reverse().forEach(appointment => {
+        const patient = patients[appointment.patientIndex];
+        const doctor = JSON.parse(localStorage.getItem("doctors"))[appointment.doctorIndex];
+        activities.push({
+            type: 'appointment',
+            text: `${patient ? patient.name : 'Unknown Patient'} with ${doctor ? doctor.name : 'Unknown Doctor'}`,
+            date: appointment.date,
+            icon: 'fas fa-calendar'
+        });
+    });
+    
+    // Sort by date and take latest 5
+    activities.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const latestActivities = activities.slice(0, 5);
+    
+    if (latestActivities.length === 0) {
+        recentActivity.innerHTML = '<p class="doc-info">No recent activity to display.</p>';
+    } else {
+        recentActivity.innerHTML = latestActivities.map(activity => `
+            <div style="padding: 10px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 10px;">
+                <i class="${activity.icon}" style="color: #6e0f0f; width: 16px;"></i>
+                <div>
+                    <div>${activity.text}</div>
+                    <small style="color: #666;">${new Date(activity.date).toLocaleDateString()}</small>
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
+/* ================================
+   EXPORT FUNCTIONALITY
+================================ */
+
+// Export dashboard data to PDF
+function exportDashboardPDF() {
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Title
+        doc.setFontSize(20);
+        doc.setTextColor(110, 15, 15);
+        doc.text('Clinic Management Dashboard Report', 20, 30);
+        
+        // Date
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 45);
+        
+        // Statistics
+        const patients = JSON.parse(localStorage.getItem("patients")) || [];
+        const doctors = JSON.parse(localStorage.getItem("doctors")) || [];
+        const records = JSON.parse(localStorage.getItem("patientRecords")) || [];
+        const medicines = JSON.parse(localStorage.getItem("medicines")) || [];
+        const appointments = JSON.parse(localStorage.getItem("appointments")) || [];
+        
+        doc.setFontSize(16);
+        doc.text('Statistics Summary', 20, 65);
+        
+        doc.setFontSize(12);
+        const stats = [
+            `Total Patients: ${patients.length}`,
+            `Total Doctors: ${doctors.length}`,
+            `Medical Records: ${records.length}`,
+            `Medicine Items: ${medicines.length}`,
+            `Total Appointments: ${appointments.length}`
+        ];
+        
+        stats.forEach((stat, index) => {
+            doc.text(stat, 20, 85 + (index * 10));
+        });
+        
+        // Recent Records
+        doc.setFontSize(16);
+        doc.text('Recent Medical Records', 20, 145);
+        
+        doc.setFontSize(10);
+        records.slice(-5).forEach((record, index) => {
+            const patient = patients[record.patientIndex];
+            const yPos = 165 + (index * 15);
+            doc.text(`${patient ? patient.name : 'Unknown Patient'} - ${record.diagnosis}`, 20, yPos);
+            doc.text(`Date: ${new Date(record.date).toLocaleDateString()}`, 20, yPos + 5);
+        });
+        
+        doc.save(`clinic-dashboard-${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (error) {
+        console.error('Error generating PDF:', error);
+        alert('Error generating PDF report. Please try again.');
+    }
+}
+
+// Export dashboard data to Excel
+function exportDashboardExcel() {
+    try {
+        const wb = XLSX.utils.book_new();
+        
+        // Prepare data for different sheets
+        const patients = JSON.parse(localStorage.getItem("patients")) || [];
+        const doctors = JSON.parse(localStorage.getItem("doctors")) || [];
+        const records = JSON.parse(localStorage.getItem("patientRecords")) || [];
+        const medicines = JSON.parse(localStorage.getItem("medicines")) || [];
+        const appointments = JSON.parse(localStorage.getItem("appointments")) || [];
+        
+        // Dashboard Summary Sheet
+        const summaryData = [
+            ['Clinic Management Dashboard Summary'],
+            [''],
+            ['Generated on:', new Date().toLocaleDateString()],
+            [''],
+            ['Statistics'],
+            ['Total Patients', patients.length],
+            ['Total Doctors', doctors.length],
+            ['Medical Records', records.length],
+            ['Medicine Items', medicines.length],
+            ['Total Appointments', appointments.length],
+            [''],
+            ['Today\'s Appointments', appointments.filter(apt => apt.date === new Date().toISOString().split('T')[0]).length],
+            ['Low Stock Items', medicines.filter(med => med.stock < 10).length]
+        ];
+        
+        const summaryWS = XLSX.utils.aoa_to_sheet(summaryData);
+        XLSX.utils.book_append_sheet(wb, summaryWS, 'Dashboard Summary');
+        
+        // Patients Sheet
+        const patientsData = [
+            ['ID', 'Name', 'Address', 'Phone'],
+            ...patients.map((p, i) => [i + 1, p.name, p.address, p.phone])
+        ];
+        const patientsWS = XLSX.utils.aoa_to_sheet(patientsData);
+        XLSX.utils.book_append_sheet(wb, patientsWS, 'Patients');
+        
+        // Doctors Sheet
+        const doctorsData = [
+            ['Name', 'Specialty', 'Phone', 'Email', 'Availability'],
+            ...doctors.map(d => [d.name, d.specialty, d.phone, d.email, d.availability])
+        ];
+        const doctorsWS = XLSX.utils.aoa_to_sheet(doctorsData);
+        XLSX.utils.book_append_sheet(wb, doctorsWS, 'Doctors');
+        
+        // Medical Records Sheet
+        const recordsData = [
+            ['Patient', 'Date', 'Diagnosis', 'Treatment', 'Notes'],
+            ...records.map(r => {
+                const patient = patients[r.patientIndex];
+                return [
+                    patient ? patient.name : 'Unknown',
+                    new Date(r.date).toLocaleDateString(),
+                    r.diagnosis,
+                    r.treatment,
+                    r.notes
+                ];
+            })
+        ];
+        const recordsWS = XLSX.utils.aoa_to_sheet(recordsData);
+        XLSX.utils.book_append_sheet(wb, recordsWS, 'Medical Records');
+        
+        // Appointments Sheet
+        const appointmentsData = [
+            ['Patient', 'Doctor', 'Date', 'Time', 'Status'],
+            ...appointments.map(a => {
+                const patient = patients[a.patientIndex];
+                const doctor = doctors[a.doctorIndex];
+                return [
+                    patient ? patient.name : 'Unknown',
+                    doctor ? doctor.name : 'Unknown',
+                    new Date(a.date).toLocaleDateString(),
+                    a.time,
+                    a.status
+                ];
+            })
+        ];
+        const appointmentsWS = XLSX.utils.aoa_to_sheet(appointmentsData);
+        XLSX.utils.book_append_sheet(wb, appointmentsWS, 'Appointments');
+        
+        // Medicines Sheet
+        const medicinesData = [
+            ['Name', 'Category', 'Stock', 'Expiry Date'],
+            ...medicines.map(m => [m.name, m.category, m.stock, new Date(m.expiryDate).toLocaleDateString()])
+        ];
+        const medicinesWS = XLSX.utils.aoa_to_sheet(medicinesData);
+        XLSX.utils.book_append_sheet(wb, medicinesWS, 'Medicines');
+        
+        // Save file
+        XLSX.writeFile(wb, `clinic-dashboard-${new Date().toISOString().split('T')[0]}.xlsx`);
+    } catch (error) {
+        console.error('Error generating Excel file:', error);
+        alert('Error generating Excel report. Please try again.');
+    }
+}
+
+/* ================================
+   QUICK ACTIONS
+================================ */
+
+// Quick action functions for dashboard widgets
+function openRecordModal() {
+    openRecordModal(-1);
+}
+
+/* ================================
+   ENHANCED DASHBOARD UPDATE
+================================ */
+
+// Override the original updateDashboard function
+const originalUpdateDashboard = updateDashboard;
+updateDashboard = function() {
+    originalUpdateDashboard();
+    updateDashboardAnalytics();
+};
+
+// Initialize charts when dashboard loads
+document.addEventListener('DOMContentLoaded', function() {
+    if (document.getElementById("dashboardSection")) {
+        setTimeout(initializeDashboard, 500); // Small delay to ensure DOM is ready
+    }
+});
+
+// Add CSS for status badges and enhanced styling
+const additionalCSS = `
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.status-scheduled {
+    background-color: #17a2b8;
+    color: white;
+}
+
+.status-completed {
+    background-color: #28a745;
+    color: white;
+}
+
+.status-cancelled {
+    background-color: #dc3545;
+    color: white;
+}
+
+.low-stock {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.expiring-soon {
+    color: #ffc107;
+    font-weight: bold;
+}
+
+.header-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+@media (max-width: 768px) {
+    .header-controls {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .header-controls .add-btn {
+        width: 100%;
+        margin-bottom: 5px;
+    }
+}
+`;
+
+// Inject additional CSS
+const style = document.createElement('style');
+style.textContent = additionalCSS;
+document.head.appendChild(style);

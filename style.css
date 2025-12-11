@@ -33,7 +33,36 @@ body {
   box-shadow: 0 8px 30px rgba(0,0,0,0.12);
   text-align:center;
 }
+
 .auth-card h2{ color: var(--maroon-strong); margin: 0 0 10px 0; }
+
+.default-credentials {
+  background: rgba(110, 15, 15, 0.05);
+  border: 2px solid rgba(110, 15, 15, 0.1);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.default-credentials h3 {
+  color: var(--maroon-strong);
+  font-size: 14px;
+  margin: 0 0 8px 0;
+  font-weight: 600;
+}
+
+.default-credentials p {
+  margin: 4px 0;
+  font-size: 13px;
+  color: #333;
+  line-height: 1.4;
+}
+
+.default-credentials strong {
+  color: var(--maroon-strong);
+  font-weight: 600;
+}
 .auth-input {
   width:100%;
   padding:12px;
@@ -312,4 +341,37 @@ table tbody td {
 @media (max-width:900px) {
   .sidebar { display:none; }
   .container { flex-direction:column; }
+}
+/* DASHBOARD CARDS */
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 18px;
+  padding: 22px;
+}
+
+.dash-card {
+  background: white;
+  padding: 20px;
+  border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+  border-left: 6px solid var(--maroon-strong);
+  transition: transform 0.2s ease;
+}
+
+.dash-card:hover {
+  transform: scale(1.02);
+}
+
+.dash-card h3 {
+  margin: 0 0 8px;
+  color: var(--maroon-strong);
+  font-size: 17px;
+}
+
+.count {
+  font-size: 32px;
+  font-weight: 700;
+  color: #333;
+  margin-top: 6px;
 }
